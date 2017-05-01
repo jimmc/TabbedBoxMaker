@@ -8,7 +8,7 @@ Heavily modified by Paul Hutchison
 ## About
  This tool is designed to simplify and speed up process of making practical boxes using a laser cutter (though it can be used with any CNC cutter) to prepare the pieces.
 
- The tool works by generating a drawing of the pieces of the box with the tab and hole size corrected to account for the kerf (width of cut), these pieces are composed of sides, each side being a discreet object, to move a piece in the drawing the edges need to be grouped together.
+ The tool works by generating a drawing of the pieces of the box with the tab and hole size corrected to account for the kerf (width of cut), these pieces are composed of sides, each side being a discreet object.
 
 ## Release Notes
  So far no serious bugs( i.e causing runtime errors ) have been found. The program works with python versions 2.6.5, 2.6.7 and 2.7.2, other version have not yet been tried except python 2.5.1 which fails with a syntax error.

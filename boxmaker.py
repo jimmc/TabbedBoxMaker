@@ -66,6 +66,30 @@ def drawS(XYstring):         # Draw lines from a list
   inkex.etree.SubElement(parent, inkex.addNS('path','svg'), drw )
   return
 
+# Draw all four faces as a single closed path
+def drawFace(sideA, sideB, sideC, sideD):
+  s = moveTo(sideA[0])
+  s += lineToPoints(sideA)
+  s += lineToPoints(sideB)
+  s += lineToPoints(sideC)
+  s += lineToPoints(sideD)
+  s += lineTo(sideA[0])
+  drawS(s)
+
+# Skip the first point in the list on the assumption it matches the
+# last point in the previous list.
+def lineToPoints(side):
+  s = ''
+  for np in enumerate(side):
+    s += lineTo(np[1])
+  return s
+
+def moveTo(point):
+  return 'M ' + str(point[0]) + ',' + str(point[1]) + ' '
+
+def lineTo(point):
+  return 'L ' + str(point[0]) + ',' + str(point[1]) + ' '
+
 # jslee - shamelessly adapted from sample code on below Inkscape wiki page 2015-07-28
 # http://wiki.inkscape.org/wiki/index.php/Generating_objects_from_extensions
 def drawCircle(r, (cx, cy)):
@@ -83,8 +107,7 @@ def drawCircle(r, (cx, cy)):
         'transform'                         :'' }
     inkex.etree.SubElement(parent, inkex.addNS('path','svg'), ell_attribs )
 
-def dimpleStr(tabVec,Vx,Vy,dirx,diry,dirxN,diryN,ddir,isTab):
-  ds=''
+def appendDimplePoints(s, tabVec,Vx,Vy,dirx,diry,dirxN,diryN,ddir,isTab):
   if not isTab:
     ddir = -ddir;
   if dimpleHeight>0 and tabVec!=0:
@@ -96,17 +119,16 @@ def dimpleStr(tabVec,Vx,Vy,dirx,diry,dirxN,diryN,ddir,isTab):
       tabSgn=-1
     Vxd=Vx+dirxN*dimpleStart
     Vyd=Vy+diryN*dimpleStart
-    ds+='L '+str(Vxd)+','+str(Vyd)+' '
+    s.append([Vxd, Vyd])
     Vxd=Vxd+(tabSgn*dirxN-ddir*dirx)*dimpleHeight
     Vyd=Vyd+(tabSgn*diryN-ddir*diry)*dimpleHeight
-    ds+='L '+str(Vxd)+','+str(Vyd)+' '
+    s.append([Vxd, Vyd])
     Vxd=Vxd+tabSgn*dirxN*dimpleLength
     Vyd=Vyd+tabSgn*diryN*dimpleLength
-    ds+='L '+str(Vxd)+','+str(Vyd)+' '
+    s.append([Vxd, Vyd])
     Vxd=Vxd+(tabSgn*dirxN+ddir*dirx)*dimpleHeight
     Vyd=Vyd+(tabSgn*diryN+ddir*diry)*dimpleHeight
-    ds+='L '+str(Vxd)+','+str(Vyd)+' '
-  return ds;
+    s.append([Vxd, Vyd])
 
 def side((rx,ry),(sox,soy),(eox,eoy),tabVec,length,(dirx,diry),isTab,isDivider,numDividers,divSpacing,divOffset):
   #       root startOffset endOffset tabVec length  direction  isTab isDivider numDividers divSpacing dividerOffset
@@ -139,22 +161,22 @@ def side((rx,ry),(sox,soy),(eox,eoy),tabVec,length,(dirx,diry),isTab,isDivider,n
     tabWidth-=correction
     first=-correction/2
     
-  s=[] 
-  h=[]
+  s=[]          # side, an array of [x,y] points
+  h=[]          # holes
   firstVec=0; secondVec=tabVec
   dirxN=0 if dirx else 1 # used to select operation on x or y
   diryN=0 if diry else 1
   if (tabStyle==1):
       Vx = rx + (sox*thickness if dirxN else 0)
       Vy = ry + (soy*thickness if diryN else 0)
-      s='M '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
       Vx = rx+(sox if sox else dirx)*thickness
       Vy = ry+(soy if soy else diry)*thickness
       if dirxN: eox=0
       if diryN: eoy=0
   else:
       (Vx,Vy)=(rx+sox*thickness,ry+soy*thickness)
-      s='M '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
       if dirxN: Vy=ry # set correct line start for tab generation
       if diryN: Vx=rx
 
@@ -208,27 +230,27 @@ def side((rx,ry),(sox,soy),(eox,eoy),tabVec,length,(dirx,diry),isTab,isDivider,n
       # draw the gap
       Vx=Vx+dirx*gapWidth+dirxN*firstVec+first*dirx
       Vy=Vy+diry*gapWidth+diryN*firstVec+first*diry
-      s+='L '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
       # draw the starting edge of the tab
-      s+=dimpleStr(secondVec,Vx,Vy,dirx,diry,dirxN,diryN,1,isTab)
+      appendDimplePoints(s,secondVec,Vx,Vy,dirx,diry,dirxN,diryN,1,isTab)
       Vx=Vx+dirxN*secondVec
       Vy=Vy+diryN*secondVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
     else:
       # draw the tab
       Vx=Vx+dirx*tabWidth+dirxN*firstVec
       Vy=Vy+diry*tabWidth+diryN*firstVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
       # draw the ending edge of the tab
-      s+=dimpleStr(secondVec,Vx,Vy,dirx,diry,dirxN,diryN,-1,isTab)
+      appendDimplePoints(s,secondVec,Vx,Vy,dirx,diry,dirxN,diryN,-1,isTab)
       Vx=Vx+dirxN*secondVec
       Vy=Vy+diryN*secondVec
-      s+='L '+str(Vx)+','+str(Vy)+' '
+      s.append([Vx, Vy])
     (secondVec,firstVec)=(-secondVec,-firstVec) # swap tab direction
     first=0
     
   #finish the line off
-  s+='L '+str(rx+eox*thickness+dirx*length)+','+str(ry+eoy*thickness+diry*length)+' '
+  s.append([rx+eox*thickness+dirx*length, ry+eoy*thickness+diry*length])
   if isTab and numDividers>0 and not isDivider: # draw last for divider joints in side walls
     for m in range(1,int(numDividers)+1):
       Dx=Vx
@@ -632,18 +654,19 @@ class BoxMaker(inkex.Effect):
             rystart+=row_centre_spacing+row_spacing+rail_height
 
       # generate and draw the sides of each piece
-      drawS(side((x,y),(d,a),(-b,a),atabs * (-thickness if a else thickness),dx,(1,0),a,0,(keydivfloor|wall) * (keydivwalls|floor) * divx*yholes*atabs,yspacing,divOffset))          # side a
-      drawS(side((x+dx,y),(-b,a),(-b,-c),btabs * (thickness if b else -thickness),dy,(0,1),b,0,(keydivfloor|wall) * (keydivwalls|floor) * divy*xholes*btabs,xspacing,divOffset))     # side b
+      sideA = side((x,y),(d,a),(-b,a),atabs * (-thickness if a else thickness),dx,(1,0),a,0,(keydivfloor|wall) * (keydivwalls|floor) * divx*yholes*atabs,yspacing,divOffset)
+      sideB = side((x+dx,y),(-b,a),(-b,-c),btabs * (thickness if b else -thickness),dy,(0,1),b,0,(keydivfloor|wall) * (keydivwalls|floor) * divy*xholes*btabs,xspacing,divOffset)
       if atabs:
-        drawS(side((x+dx,y+dy),(-b,-c),(d,-c),ctabs * (thickness if c else -thickness),dx,(-1,0),c,0,0,0,divOffset)) # side c
+        sideC = side((x+dx,y+dy),(-b,-c),(d,-c),ctabs * (thickness if c else -thickness),dx,(-1,0),c,0,0,0,divOffset)
       else:
-        drawS(side((x+dx,y+dy),(-b,-c),(d,-c),ctabs * (thickness if c else -thickness),dx,(-1,0),c,0,(keydivfloor|wall) * (keydivwalls|floor) * divx*yholes*ctabs,yspacing,divOffset)) # side c
+        sideC = side((x+dx,y+dy),(-b,-c),(d,-c),ctabs * (thickness if c else -thickness),dx,(-1,0),c,0,(keydivfloor|wall) * (keydivwalls|floor) * divx*yholes*ctabs,yspacing,divOffset)
       if btabs:
-        drawS(side((x,y+dy),(d,-c),(d,a),dtabs * (-thickness if d else thickness),dy,(0,-1),d,0,0,0,divOffset))      # side d
+        sideD = side((x,y+dy),(d,-c),(d,a),dtabs * (-thickness if d else thickness),dy,(0,-1),d,0,0,0,divOffset)
       else:
-        drawS(side((x,y+dy),(d,-c),(d,a),dtabs * (-thickness if d else thickness),dy,(0,-1),d,0,(keydivfloor|wall) * (keydivwalls|floor) * divy*xholes*dtabs,xspacing,divOffset))      # side d
+        sideD = side((x,y+dy),(d,-c),(d,a),dtabs * (-thickness if d else thickness),dy,(0,-1),d,0,(keydivfloor|wall) * (keydivwalls|floor) * divy*xholes*dtabs,xspacing,divOffset)
+      drawFace(sideA, sideB, sideC, sideD)
 
-      if idx==0:
+      if idx==0:        # X divider is modeled on the first face in the list
         if not keydivwalls:
           a=1;
           b=1;
@@ -656,18 +679,20 @@ class BoxMaker(inkex.Effect):
         y=4*spacing+1*Y+2*Z  # root y co-ord for piece 
         for n in range(0,divx): # generate X dividers
           x=n*(spacing+X)  # root x co-ord for piece      
-          drawS(side((x,y),(d,a),(-b,a),keydivfloor*atabs*(-thickness if a else thickness),dx,(1,0),a,1,0,0,divOffset))          # side a
-          drawS(side((x+dx,y),(-b,a),(-b,-c),keydivwalls*btabs*(thickness if keydivwalls*b else -thickness),dy,(0,1),b,1,divy*xholes,xspacing,divOffset))     # side b
-          drawS(side((x+dx,y+dy),(-b,-c),(d,-c),keydivfloor*ctabs*(thickness if c else -thickness),dx,(-1,0),c,1,0,0,divOffset)) # side c
-          drawS(side((x,y+dy),(d,-c),(d,a),keydivwalls*dtabs*(-thickness if d else thickness),dy,(0,-1),d,1,0,0,divOffset))      # side d
+          sideA = side((x,y),(d,a),(-b,a),keydivfloor*atabs*(-thickness if a else thickness),dx,(1,0),a,1,0,0,divOffset)
+          sideB = side((x+dx,y),(-b,a),(-b,-c),keydivwalls*btabs*(thickness if keydivwalls*b else -thickness),dy,(0,1),b,1,divy*xholes,xspacing,divOffset)
+          sideC = side((x+dx,y+dy),(-b,-c),(d,-c),keydivfloor*ctabs*(thickness if c else -thickness),dx,(-1,0),c,1,0,0,divOffset)
+          sideD = side((x,y+dy),(d,-c),(d,a),keydivwalls*dtabs*(-thickness if d else thickness),dy,(0,-1),d,1,0,0,divOffset)
+          drawFace(sideA, sideB, sideC, sideD)
       elif idx==1:
         y=5*spacing+1*Y+3*Z  # root y co-ord for piece 
         for n in range(0,divy): # generate Y dividers 
           x=n*(spacing+Z)  # root x co-ord for piece
-          drawS(side((x,y),(d,a),(-b,a),keydivwalls*atabs*(-thickness if a else thickness),dx,(1,0),a,1,divx*yholes,yspacing,thickness))          # side a
-          drawS(side((x+dx,y),(-b,a),(-b,-c),keydivfloor*btabs*(thickness if b else -thickness),dy,(0,1),b,1,0,0,thickness))     # side b
-          drawS(side((x+dx,y+dy),(-b,-c),(d,-c),keydivwalls*ctabs*(thickness if c else -thickness),dx,(-1,0),c,1,0,0,thickness)) # side c
-          drawS(side((x,y+dy),(d,-c),(d,a),keydivfloor*dtabs*(-thickness if d else thickness),dy,(0,-1),d,1,0,0,thickness))      # side d
+          sideA = side((x,y),(d,a),(-b,a),keydivwalls*atabs*(-thickness if a else thickness),dx,(1,0),a,1,divx*yholes,yspacing,thickness)
+          sideB = side((x+dx,y),(-b,a),(-b,-c),keydivfloor*btabs*(thickness if b else -thickness),dy,(0,1),b,1,0,0,thickness)
+          sideC = side((x+dx,y+dy),(-b,-c),(d,-c),keydivwalls*ctabs*(thickness if c else -thickness),dx,(-1,0),c,1,0,0,thickness)
+          sideC = side((x,y+dy),(d,-c),(d,a),keydivfloor*dtabs*(-thickness if d else thickness),dy,(0,-1),d,1,0,0,thickness)
+          drawFace(sideA, sideB, sideC, sideD)
 
 # Create effect instance and apply it.
 effect = BoxMaker()
